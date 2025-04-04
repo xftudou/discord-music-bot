@@ -1,3 +1,5 @@
 node_modules/
 cookies.json
 *.env
+*.venv
+__pycache__/
