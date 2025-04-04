@@ -26,7 +26,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 # Bot setup
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="-", intents=intents, help_command=None)
 
 
 @bot.event
@@ -56,6 +56,20 @@ async def pause_cmd(ctx):
 
     voice_client.pause()
     await ctx.send("Playback paused!")
+
+
+@bot.command(name="help")
+async def help_cmd(ctx):
+    help_text = """
+🎶 **🥔点歌台指令** 🎶
+
+`-play <url or search>` - Play a song  
+`-pause` - Pause playback  
+`-resume` - Resume playback  
+`-skip` - Skip the current song  
+`-stop` - Leave the voice channel
+"""
+    await ctx.send(help_text)
 
 
 @bot.command(name="resume")
