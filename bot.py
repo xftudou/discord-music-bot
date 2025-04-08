@@ -10,6 +10,8 @@ import os
 # Create the structure for queueing songs
 SONG_QUEUES = {}
 
+LOOP_FLAGS = {}
+CURRENT_TRACK = {}
 
 async def search_ytdlp_async(query, ydl_opts):
     loop = asyncio.get_running_loop()
@@ -120,11 +122,20 @@ async def play(ctx, *, song_query: str):
         "noplaylist": True,
         "youtube_include_dash_manifest": False,
         "youtube_include_hls_manifest": False,
+        'cookiefile': 'www.youtube.com_cookies.txt',
     }
 
-    query = "ytsearch1: " + song_query
+    if song_query.startswith("http://") or song_query.startswith("https://"):
+        query = song_query
+    else:
+        query = "ytsearch1:" + song_query
+
     results = await search_ytdlp_async(query, ydl_options)
-    tracks = results.get("entries", [])
+    
+    if "entries" in results:
+        tracks = results["entries"]
+    else:
+        tracks = [results]
 
     if not tracks:
         await ctx.send("No results found.")
@@ -147,29 +158,47 @@ async def play(ctx, *, song_query: str):
         await play_next_song(voice_client, guild_id, ctx.channel)
 
 
+@bot.command(name="loop")
+async def loop_cmd(ctx, mode: str = None):
+    guild_id = str(ctx.guild.id)
+
+    if mode == "off":
+        LOOP_FLAGS[guild_id] = False
+        await ctx.send("Loop mode **disabled**.")
+    else:
+        LOOP_FLAGS[guild_id] = True
+        await ctx.send("Loop mode **enabled**. The current song will repeat.")
+
+
 async def play_next_song(voice_client, guild_id, channel):
-    if SONG_QUEUES[guild_id]:
+    if LOOP_FLAGS.get(guild_id, False) and CURRENT_TRACK.get(guild_id):
+        audio_url, title = CURRENT_TRACK[guild_id]
+    elif SONG_QUEUES[guild_id]:
         audio_url, title = SONG_QUEUES[guild_id].popleft()
-
-        ffmpeg_options = {
-            "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            "options": "-vn -b:a 96k",
-        }
-
-        source = discord.FFmpegOpusAudio(
-            audio_url, **ffmpeg_options)
-
-        def after_play(error):
-            if error:
-                print(f"Error playing {title}: {error}")
-            asyncio.run_coroutine_threadsafe(play_next_song(
-                voice_client, guild_id, channel), bot.loop)
-
-        voice_client.play(source, after=after_play)
-        asyncio.create_task(channel.send(f"Now playing: **{title}**"))
+        CURRENT_TRACK[guild_id] = (audio_url, title)
     else:
         await voice_client.disconnect()
         SONG_QUEUES[guild_id] = deque()
+        CURRENT_TRACK[guild_id] = None
+        return
+
+    ffmpeg_options = {
+        "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+        "options": "-vn -b:a 96k",
+    }
+
+    source = discord.FFmpegOpusAudio(audio_url, **ffmpeg_options)
+
+    def after_play(error):
+        if error:
+            print(f"Error playing {title}: {error}")
+        asyncio.run_coroutine_threadsafe(
+            play_next_song(voice_client, guild_id, channel),
+            bot.loop,
+        )
+
+    voice_client.play(source, after=after_play)
+    await channel.send(f"Now playing: **{title}**{' 🔁' if LOOP_FLAGS.get(guild_id) else ''}")
 
 
 # Run the bot
