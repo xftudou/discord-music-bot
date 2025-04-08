@@ -6,6 +6,20 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import os
+import tempfile
+
+cookie_data = os.getenv("YOUTUBE_COOKIES")
+
+if cookie_data:
+    # Create a temporary file to hold the cookies.
+    # Ensure delete=False so the file persists for yt-dlp to read.
+    tmp_cookie_file = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf8", suffix=".txt")
+    tmp_cookie_file.write(cookie_data)
+    tmp_cookie_file.close()
+    cookie_file_path = tmp_cookie_file.name
+else:
+    # Fallback: if the variable is not set, you can use a default file path.
+    cookie_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "www.youtube.com_cookies.txt")
 
 # Create the structure for queueing songs
 SONG_QUEUES = {}
@@ -70,6 +84,7 @@ async def help_cmd(ctx):
 `-resume` - Resume playback  
 `-skip` - Skip the current song  
 `-stop` - Leave the voice channel
+`-loop` - Loop the current song
 """
     await ctx.send(help_text)
 
@@ -122,7 +137,7 @@ async def play(ctx, *, song_query: str):
         "noplaylist": True,
         "youtube_include_dash_manifest": False,
         "youtube_include_hls_manifest": False,
-        'cookiefile': 'www.youtube.com_cookies.txt',
+        'cookiefile': cookie_file_path,
     }
 
     if song_query.startswith("http://") or song_query.startswith("https://"):
