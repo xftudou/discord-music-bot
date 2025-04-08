@@ -6,21 +6,22 @@ from discord import app_commands
 from discord.ext import commands
 import discord
 import os
+import base64
 import tempfile
 
-cookie_data = os.getenv("YOUTUBE_COOKIES")
+cookie_data_b64 = os.getenv("YOUTUBE_COOKIES_BASE64")
 
-if cookie_data:
-    # Create a temporary file to hold the cookies.
-    # Ensure delete=False so the file persists for yt-dlp to read.
+if cookie_data_b64:
+    # Decode the base64 string
+    cookie_data = base64.b64decode(cookie_data_b64).decode("utf-8")
+    # Write it to a temporary file for yt_dlp
     tmp_cookie_file = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf8", suffix=".txt")
     tmp_cookie_file.write(cookie_data)
     tmp_cookie_file.close()
     cookie_file_path = tmp_cookie_file.name
 else:
-    # Fallback: if the variable is not set, you can use a default file path.
+    # Fallback if the environment variable is not set
     cookie_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "www.youtube.com_cookies.txt")
-
 # Create the structure for queueing songs
 SONG_QUEUES = {}
 
